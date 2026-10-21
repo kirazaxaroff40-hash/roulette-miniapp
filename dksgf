@@ -1,0 +1,321 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Roulette</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #10110f;
+      color: #f5ead0;
+      font-family: Arial, sans-serif;
+      padding: 18px 12px 30px;
+    }
+    .app { max-width: 480px; margin: auto; }
+    header {
+      display: flex; justify-content: space-between;
+      align-items: center; margin-bottom: 20px;
+    }
+    .brand { font-size: 21px; font-weight: 900; letter-spacing: 3px; }
+    .balance {
+      border: 1px solid #a88442; border-radius: 10px;
+      padding: 9px 12px; color: #f0ca79;
+      background: #1b1913; font-size: 13px;
+    }
+    .panel {
+      background: linear-gradient(145deg, #1c1d19, #131411);
+      border: 1px solid #37352a; border-radius: 16px;
+      padding: 16px; margin-bottom: 15px;
+    }
+    .caption {
+      color: #a5a08e; text-transform: uppercase;
+      letter-spacing: 2px; font-size: 10px; text-align: center;
+    }
+    .wheel-wrap {
+      width: min(78vw, 310px); aspect-ratio: 1;
+      margin: 17px auto; position: relative;
+    }
+    canvas {
+      width: 100%; height: 100%; display: block;
+      filter: drop-shadow(0 8px 18px #000b);
+    }
+    .pointer {
+      position: absolute; top: -4px; left: 50%;
+      transform: translateX(-50%);
+      z-index: 2; width: 0; height: 0;
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-top: 22px solid #f5d38a;
+      filter: drop-shadow(0 2px 3px #000);
+    }
+    .last-result { text-align: center; color: #b6ad97; font-size: 12px; }
+    .result-number { font-size: 27px; color: #f5d38a; font-weight: bold; }
+    .grid {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 5px; margin-top: 12px;
+    }
+    button {
+      color: #fff; border: 1px solid #ffffff24;
+      border-radius: 7px; min-height: 38px;
+      font-weight: bold; font-size: 13px;
+      cursor: pointer; touch-action: manipulation;
+    }
+    button:active { transform: scale(.97); }
+    .num { background: #a9212b; }
+    .black { background: #242521; }
+    .green { background: #167346; }
+    .zero { grid-column: span 3; }
+    .selected { outline: 2px solid #f5d38a; outline-offset: 1px; }
+    .bet-options { display: flex; gap: 7px; margin: 12px 0; }
+    .bet-options button { flex: 1; background: #292820; }
+    .bet-options .selected { background: #66512c; }
+    .amount-row { display: flex; gap: 8px; margin-top: 10px; }
+    input {
+      width: 100%; min-width: 0; background: #10110f;
+      color: white; border: 1px solid #514a36;
+      border-radius: 9px; padding: 12px; font-size: 16px;
+    }
+    .spin {
+      width: 100%; background: linear-gradient(100deg, #8c672d, #e6c27c);
+      color: #19150d; border: 0; min-height: 48px;
+      font-size: 14px; letter-spacing: 1px; margin-top: 12px;
+    }
+    .hint { color: #9b9787; font-size: 11px; line-height: 1.5; text-align: center; }
+    .message { text-align: center; min-height: 22px; margin: 12px 0 0; font-size: 14px; }
+    .history { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+    .history span {
+      width: 28px; height: 28px; display: grid; place-items: center;
+      border-radius: 50%; font-size: 11px; font-weight: bold;
+    }
+    .muted { color: #99927f; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">ROULETTE<span style="color:#d9b56c">.</span></div>
+    <div class="balance">◈ <span id="balance">1000</span> CR</div>
+  </header>
+
+  <section class="panel">
+    <div class="caption">European roulette · 0–36</div>
+    <div class="wheel-wrap">
+      <div class="pointer"></div>
+      <canvas id="wheel" width="600" height="600"></canvas>
+    </div>
+    <div class="last-result">РЕЗУЛЬТАТ</div>
+    <div class="result-number" id="result">—</div>
+    <div class="caption" id="color-label">Сделай свою ставку</div>
+  </section>
+
+  <section class="panel">
+    <div class="caption">Игровой стол</div>
+    <div class="grid" id="numbers">
+      <button class="green zero" data-type="number" data-value="0">0</button>
+    </div>
+    <div class="bet-options">
+      <button data-type="color" data-value="red" class="num">🔴 Красное</button>
+      <button data-type="color" data-value="black" class="black">⚫ Чёрное</button>
+    </div>
+    <div class="caption">Размер ставки · виртуальные кредиты</div>
+    <div class="amount-row">
+      <input id="amount" type="number" min="1" step="1" value="50" inputmode="numeric">
+    </div>
+    <button class="spin" id="spin">КРУТИТЬ РУЛЕТКУ</button>
+    <div class="message" id="message"></div>
+    <p class="hint">Демонстрационный режим. Используются только виртуальные кредиты.</p>
+  </section>
+
+  <section class="panel">
+    <div class="caption">Последние результаты</div>
+    <div class="history" id="history"><span class="muted">—</span></div>
+  </section>
+</div>
+
+<script>
+  const tg = window.Telegram?.WebApp;
+  tg?.ready();
+  tg?.expand();
+
+  const redNumbers = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+  const order = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
+  const canvas = document.getElementById('wheel');
+  const ctx = canvas.getContext('2d');
+  const TAU = Math.PI * 2;
+  const slice = TAU / 37;
+  let rotation = 0;
+  let balance = 1000;
+  let selected = { type: 'color', value: 'red' };
+  let busy = false;
+  let history = [];
+
+  const numbers = document.getElementById('numbers');
+  for (let n = 1; n <= 36; n++) {
+    const b = document.createElement('button');
+    b.className = redNumbers.has(n) ? 'num' : 'black';
+    b.textContent = n;
+    b.dataset.type = 'number';
+    b.dataset.value = n;
+    numbers.appendChild(b);
+  }
+
+  function drawWheel(angle = rotation) {
+    const cx = 300, cy = 300, r = 278;
+    ctx.clearRect(0, 0, 600, 600);
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, 294, 0, TAU);
+    ctx.fillStyle = '#c5a05b';
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, 284, 0, TAU);
+    ctx.fillStyle = '#282219';
+    ctx.fill();
+
+    order.forEach((num, i) => {
+      const start = -Math.PI / 2 + i * slice + angle;
+      const end = start + slice;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, r, start, end);
+      ctx.closePath();
+      ctx.fillStyle = num === 0 ? '#147447' : redNumbers.has(num) ? '#b32932' : '#20211f';
+      ctx.fill();
+      ctx.strokeStyle = '#d0b16c';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      const mid = start + slice / 2;
+      const tx = cx + Math.cos(mid) * 235;
+      const ty = cy + Math.sin(mid) * 235;
+      ctx.save();
+      ctx.translate(tx, ty);
+      ctx.rotate(mid + Math.PI / 2);
+      ctx.fillStyle = '#fff0cf';
+      ctx.font = 'bold 17px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(num, 0, 0);
+      ctx.restore();
+    });
+
+    const g = ctx.createRadialGradient(cx, cy, 15, cx, cy, 105);
+    g.addColorStop(0, '#54452b');
+    g.addColorStop(0.65, '#211b11');
+    g.addColorStop(1, '#c6a15d');
+    ctx.beginPath();
+    ctx.arc(cx, cy, 105, 0, TAU);
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.strokeStyle = '#f1d28a';
+    ctx.lineWidth = 5;
+    ctx.stroke();
+
+    ctx.fillStyle = '#f4d28b';
+    ctx.font = 'bold 25px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('R', cx, cy);
+  }
+
+  function choose(button) {
+    if (busy) return;
+    document.querySelectorAll('[data-type]').forEach(b => b.classList.remove('selected'));
+    button.classList.add('selected');
+    selected = { type: button.dataset.type, value: button.dataset.value };
+    document.getElementById('message').textContent =
+      selected.type === 'number'
+        ? `Ставка на число ${selected.value}`
+        : `Выбрано: ${selected.value === 'red' ? 'красное' : 'чёрное'}`;
+  }
+
+  document.querySelectorAll('[data-type]').forEach(button => {
+    button.addEventListener('click', () => choose(button));
+  });
+  document.querySelector('[data-value="red"]').classList.add('selected');
+
+  function spinWheel(target, duration = 4200) {
+    return new Promise(resolve => {
+      const start = rotation;
+      const startTime = performance.now();
+      const index = order.indexOf(target);
+      const desired = -((index + 0.5) * slice);
+      const current = ((start % TAU) + TAU) % TAU;
+      const targetMod = ((desired % TAU) + TAU) % TAU;
+      const extra = 6 * TAU + ((targetMod - current + TAU) % TAU);
+      const end = start + extra;
+
+      function frame(now) {
+        const t = Math.min(1, (now - startTime) / duration);
+        const eased = 1 - Math.pow(1 - t, 5);
+        rotation = start + (end - start) * eased;
+        drawWheel(rotation);
+        if (t < 1) requestAnimationFrame(frame);
+        else {
+          rotation = end;
+          drawWheel(rotation);
+          resolve();
+        }
+      }
+      requestAnimationFrame(frame);
+    });
+  }
+
+  document.getElementById('spin').addEventListener('click', async () => {
+    if (busy) return;
+    const amount = Number(document.getElementById('amount').value);
+
+    if (!Number.isSafeInteger(amount) || amount < 1) {
+      document.getElementById('message').textContent = 'Введите целую ставку от 1.';
+      return;
+    }
+    if (amount > balance) {
+      document.getElementById('message').textContent = 'Недостаточно виртуальных кредитов.';
+      return;
+    }
+
+    busy = true;
+    document.getElementById('spin').disabled = true;
+    document.getElementById('message').textContent = 'Колесо вращается…';
+    balance -= amount;
+    document.getElementById('balance').textContent = balance;
+
+    // Демо-режим: результат рассчитывается на клиенте.
+    const result = Math.floor(Math.random() * 37);
+    await spinWheel(result);
+
+    const color = result === 0 ? 'green' : redNumbers.has(result) ? 'red' : 'black';
+    const won = selected.type === 'number'
+      ? result === Number(selected.value)
+      : selected.value === color;
+
+    const payout = won ? amount * (selected.type === 'number' ? 36 : 2) : 0;
+    balance += payout;
+    document.getElementById('balance').textContent = balance;
+    document.getElementById('result').textContent = result;
+    document.getElementById('color-label').textContent =
+      color === 'green' ? 'ЗЕРО' : color === 'red' ? 'КРАСНОЕ' : 'ЧЁРНОЕ';
+
+    document.getElementById('message').textContent = won
+      ? `Победа! Выплата: ${payout} кредитов`
+      : `Не повезло. Потеряно: ${amount} кредитов`;
+
+    history.unshift({ result, color });
+    history = history.slice(0, 10);
+    document.getElementById('history').innerHTML = history.map(item =>
+      `<span style="background:${item.color === 'green' ? '#167346' : item.color === 'red' ? '#a9212b' : '#242521'}">${item.result}</span>`
+    ).join('');
+
+    busy = false;
+    document.getElementById('spin').disabled = false;
+  });
+
+  drawWheel();
+</script>
+</body>
+</html>
